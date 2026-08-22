@@ -673,7 +673,7 @@ namespace NoSleep
             _trayIcon.Icon = this.Icon;
             _trayIcon.Text = "NoSleep";
             _trayIcon.ContextMenuStrip = _trayMenu;
-            _trayIcon.Visible = false;
+            _trayIcon.Visible = true;
             _trayIcon.MouseClick += delegate(object s, MouseEventArgs e)
             {
                 if (e.Button == MouseButtons.Left)
@@ -762,11 +762,6 @@ namespace NoSleep
             _restoringFromTray = true;
             try
             {
-                if (_trayIcon != null)
-                {
-                    _trayIcon.Visible = false;
-                }
-
                 // Show first: WindowState changes only apply to the native
                 // window while the form is visible. Restoring the state of a
                 // hidden form leaves it natively minimized after Show().
@@ -1123,6 +1118,10 @@ namespace NoSleep
         public void ExitApplication()
         {
             _isExplicitExit = true;
+            if (_trayIcon != null)
+            {
+                _trayIcon.Visible = false;
+            }
             SyncConfigFromUI();
             _config.Save();
             _monitor.Stop();
