@@ -723,6 +723,7 @@ namespace NoSleep
         }
 
         private bool _startupVisibilityHandled = false;
+        private bool _restoringFromTray = false;
 
         protected override void SetVisibleCore(bool value)
         {
@@ -743,7 +744,7 @@ namespace NoSleep
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
-            if (!_isExplicitExit && this.WindowState == FormWindowState.Minimized && _trayIcon != null)
+            if (!_isExplicitExit && !_restoringFromTray && this.Visible && this.WindowState == FormWindowState.Minimized && _trayIcon != null)
             {
                 HideToTray();
             }
@@ -758,16 +759,30 @@ namespace NoSleep
 
         public void RestoreFromTray()
         {
-            if (_trayIcon != null)
+            _restoringFromTray = true;
+            try
             {
-                _trayIcon.Visible = false;
+                if (_trayIcon != null)
+                {
+                    _trayIcon.Visible = false;
+                }
+
+                // Show first: WindowState changes only apply to the native
+                // window while the form is visible. Restoring the state of a
+                // hidden form leaves it natively minimized after Show().
+                this.Show();
+
+                if (this.WindowState != FormWindowState.Normal)
+                {
+                    this.WindowState = FormWindowState.Normal;
+                }
+
+                this.Activate();
             }
-            if (this.WindowState == FormWindowState.Minimized)
+            finally
             {
-                this.WindowState = FormWindowState.Normal;
+                _restoringFromTray = false;
             }
-            this.Show();
-            this.Activate();
         }
 
         private void FlushPendingLogs()
