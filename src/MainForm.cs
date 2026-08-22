@@ -100,6 +100,10 @@ namespace NoSleep
             InitializeFormProperties();
             InitializeComponents();
 
+            // Force native window handle creation so BeginInvoke and cross-process
+            // activation work immediately even when NoSleep is started minimized.
+            IntPtr forceHandle = this.Handle;
+
             _monitor.ActivityUpdated += OnActivityUpdated;
             _monitor.Start();
 
@@ -786,20 +790,32 @@ namespace NoSleep
             _trayIcon.Visible = true;
         }
 
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        private const int SW_RESTORE = 9;
+
         public void RestoreFromTray()
         {
             _restoringFromTray = true;
             try
             {
-                // Show first: WindowState changes only apply to the native
-                // window while the form is visible. Restoring the state of a
-                // hidden form leaves it natively minimized after Show().
-                this.Show();
+                // Ensure form is visible
+                if (!this.Visible)
+                {
+                    this.Show();
+                }
 
                 if (this.WindowState != FormWindowState.Normal)
                 {
                     this.WindowState = FormWindowState.Normal;
                 }
+
+                ShowWindow(this.Handle, SW_RESTORE);
+                SetForegroundWindow(this.Handle);
 
                 this.Activate();
 

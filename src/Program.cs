@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -8,6 +9,10 @@ namespace NoSleep
     {
         private const string AppGuid = "NoSleep-Steam-AntiStandby-App-8F9E2A10";
         private const string ActivateEventName = AppGuid + "-Activate";
+
+        [DllImport("user32.dll")]
+        private static extern bool AllowSetForegroundWindow(int dwProcessId);
+        private const int ASFW_ANY = -1;
 
         [STAThread]
         static void Main(string[] args)
@@ -47,7 +52,14 @@ namespace NoSleep
                         {
                             try
                             {
-                                mainForm.BeginInvoke((Action)(delegate { mainForm.RestoreFromTray(); }));
+                                if (mainForm.IsHandleCreated)
+                                {
+                                    mainForm.BeginInvoke((Action)(delegate { mainForm.RestoreFromTray(); }));
+                                }
+                                else
+                                {
+                                    mainForm.RestoreFromTray();
+                                }
                             }
                             catch
                             {
@@ -69,6 +81,8 @@ namespace NoSleep
         {
             try
             {
+                AllowSetForegroundWindow(ASFW_ANY);
+
                 using (EventWaitHandle evt = EventWaitHandle.OpenExisting(ActivateEventName))
                 {
                     evt.Set();
