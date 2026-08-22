@@ -20,11 +20,14 @@ Grab the latest standalone executable from the **[GitHub Releases](https://githu
 
 - **⚡ Native Windows Standby Prevention**:
   - Leverages the Windows Win32 Power API (`SetThreadExecutionState`) to block sleep without noisy mouse-jitter hacks or synthetic keyboard events.
+- **🖥️ Monitored Applications & Processes**:
+  - Automatically prevents standby whenever specified applications (e.g. `putty.exe`, `obs64.exe`, SSH clients, renderers, virtual machines) are running.
+  - Interactive process manager allows adding custom executable names, browsing for `.exe` files, or 1-click selecting from currently running Windows processes with live status indicators (🟢 Running / ⚪ Not Running).
 - **🌐 Network & 💾 Disk Throughput Monitoring**:
   - Live throughput counters measuring network download/upload rates and disk read/write throughput using standard Windows Performance Counters.
 - **⏱️ Trigger Delay & Cooldown (Peak Filter & Grace Period)**:
   - **Trigger Delay**: High throughput must be sustained for a configurable duration (default: 5s) to avoid unnecessary activations from brief network spikes.
-  - **Cooldown**: Retains sleep prevention for a grace period (default: 60s) after throughput drops to bridge download chunk pauses.
+  - **Cooldown**: Retains sleep prevention for a grace period (default: 60s) after throughput drops or monitored apps close.
 - **🔒 Keep PC Awake (Force Awake)**:
   - 1-click toggle to keep your computer awake indefinitely whenever needed.
 - **📋 Activity Log with Full Clipboard Support**:
@@ -55,6 +58,8 @@ Settings can be customized directly in the graphical interface or via `config.js
 | **Cooldown / Grace Period** | `60 sec` | Time sleep remains blocked after throughput drops below threshold. |
 | **Monitor Network** | `Enabled` | Check download throughput for standby prevention. |
 | **Monitor Disk** | `Enabled` | Check disk write/read throughput for standby prevention. |
+| **Monitor Processes** | `Enabled` | Prevent standby whenever configured programs are running. |
+| **Monitored Processes** | `[]` | List of watched executable names (e.g. `putty.exe`, `obs64.exe`). |
 | **Keep Display On** | `Disabled` | When disabled, displays can power down while the PC stays awake. |
 | **Start with Windows** | `Disabled` | Automatically launch NoSleep on Windows boot. |
 | **Start Minimized** | `Disabled` | Start minimized in system tray on launch. |

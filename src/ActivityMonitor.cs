@@ -23,6 +23,8 @@ namespace NoSleep
 
         public bool IsNetworkActive { get; set; }
         public bool IsDiskActive { get; set; }
+        public bool IsProcessActive { get; set; }
+        public System.Collections.Generic.List<string> ActiveMonitoredProcesses { get; set; }
         public bool IsActiveRaw { get; set; }
 
         public bool IsPendingActivation { get; set; }
@@ -184,7 +186,11 @@ namespace NoSleep
                 // 3. Evaluate activity thresholds & Peak filtering
                 bool netActive = _config.MonitorNetwork && (netDownMBps >= _config.NetworkThresholdMBps);
                 bool diskActive = _config.MonitorDisk && ((diskReadMBps + diskWriteMBps) >= _config.DiskThresholdMBps);
-                bool isRawActive = netActive || diskActive;
+                
+                System.Collections.Generic.List<string> activeProcesses;
+                bool procActive = CheckMonitoredProcesses(out activeProcesses);
+
+                bool isRawActive = netActive || diskActive || procActive;
                 bool forceAwake = _config.ForceAwake;
 
                 bool isPendingActivation = false;
@@ -200,7 +206,16 @@ namespace NoSleep
                     _lastActiveTime = now;
                     _consecutiveActiveSeconds = 0;
                 }
-                else if (isRawActive)
+                else if (procActive)
+                {
+                    // Monitored application running: immediately engage standby block
+                    shouldBlock = true;
+                    isConfirmedActive = true;
+                    _isCurrentlyEngaged = true;
+                    _lastActiveTime = now;
+                    _consecutiveActiveSeconds = _config.ActivationDelaySeconds;
+                }
+                else if (netActive || diskActive)
                 {
                     if (_isCurrentlyEngaged)
                     {
@@ -270,6 +285,8 @@ namespace NoSleep
                     DiskWriteMBps = diskWriteMBps,
                     IsNetworkActive = netActive,
                     IsDiskActive = diskActive,
+                    IsProcessActive = procActive,
+                    ActiveMonitoredProcesses = activeProcesses,
                     IsActiveRaw = isRawActive,
                     IsPendingActivation = isPendingActivation,
                     PendingActivationSeconds = _consecutiveActiveSeconds,
@@ -290,6 +307,66 @@ namespace NoSleep
             catch
             {
                 // Prevent unhandled timer exceptions
+            }
+        }
+
+        private bool CheckMonitoredProcesses(out System.Collections.Generic.List<string> activeProcesses)
+        {
+            activeProcesses = new System.Collections.Generic.List<string>();
+            if (!_config.MonitorProcesses || _config.MonitoredProcesses == null || _config.MonitoredProcesses.Count == 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                Process[] runningProcesses = Process.GetProcesses();
+                try
+                {
+                    System.Collections.Generic.HashSet<string> runningNames = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    for (int i = 0; i < runningProcesses.Length; i++)
+                    {
+                        try
+                        {
+                            runningNames.Add(runningProcesses[i].ProcessName);
+                        }
+                        catch { }
+                    }
+
+                    for (int j = 0; j < _config.MonitoredProcesses.Count; j++)
+                    {
+                        string target = _config.MonitoredProcesses[j];
+                        if (string.IsNullOrEmpty(target)) continue;
+
+                        string cleanName = target.Trim();
+                        if (cleanName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        {
+                            cleanName = cleanName.Substring(0, cleanName.Length - 4);
+                        }
+
+                        if (runningNames.Contains(cleanName))
+                        {
+                            activeProcesses.Add(target.Trim());
+                        }
+                    }
+                }
+                finally
+                {
+                    for (int i = 0; i < runningProcesses.Length; i++)
+                    {
+                        try
+                        {
+                            runningProcesses[i].Dispose();
+                        }
+                        catch { }
+                    }
+                }
+
+                return activeProcesses.Count > 0;
+            }
+            catch
+            {
+                return false;
             }
         }
 

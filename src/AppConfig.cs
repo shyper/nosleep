@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -25,6 +26,8 @@ namespace NoSleep
         public bool StartWithWindows { get; set; }
         public bool StartMinimized { get; set; }
         public bool ForceAwake { get; set; }
+        public bool MonitorProcesses { get; set; }
+        public System.Collections.Generic.List<string> MonitoredProcesses { get; set; }
         public CloseAction ActionOnClose { get; set; }
 
         private const string RunRegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
@@ -44,6 +47,8 @@ namespace NoSleep
             StartWithWindows = false;
             StartMinimized = false;
             ForceAwake = false;
+            MonitorProcesses = true;
+            MonitoredProcesses = new System.Collections.Generic.List<string>();
             ActionOnClose = CloseAction.AskEveryTime;
         }
 
@@ -234,6 +239,29 @@ namespace NoSleep
             sb.AppendLine(string.Format("  \"StartWithWindows\": {0},", StartWithWindows ? "true" : "false"));
             sb.AppendLine(string.Format("  \"StartMinimized\": {0},", StartMinimized ? "true" : "false"));
             sb.AppendLine(string.Format("  \"ForceAwake\": {0},", ForceAwake ? "true" : "false"));
+            sb.AppendLine(string.Format("  \"MonitorProcesses\": {0},", MonitorProcesses ? "true" : "false"));
+            
+            sb.Append("  \"MonitoredProcesses\": [");
+            if (MonitoredProcesses != null && MonitoredProcesses.Count > 0)
+            {
+                sb.AppendLine();
+                for (int i = 0; i < MonitoredProcesses.Count; i++)
+                {
+                    string escaped = MonitoredProcesses[i].Replace("\\", "\\\\").Replace("\"", "\\\"");
+                    sb.Append(string.Format("    \"{0}\"", escaped));
+                    if (i < MonitoredProcesses.Count - 1)
+                    {
+                        sb.Append(",");
+                    }
+                    sb.AppendLine();
+                }
+                sb.AppendLine("  ],");
+            }
+            else
+            {
+                sb.AppendLine("],");
+            }
+
             sb.AppendLine(string.Format("  \"ActionOnClose\": {0}", (int)ActionOnClose));
             sb.AppendLine("}");
             return sb.ToString();
@@ -253,6 +281,12 @@ namespace NoSleep
             StartWithWindows = ExtractBool(json, "StartWithWindows", StartWithWindows);
             StartMinimized = ExtractBool(json, "StartMinimized", StartMinimized);
             ForceAwake = ExtractBool(json, "ForceAwake", ForceAwake);
+            MonitorProcesses = ExtractBool(json, "MonitorProcesses", MonitorProcesses);
+
+            if (Regex.IsMatch(json, "\"MonitoredProcesses\"\\s*:", RegexOptions.IgnoreCase))
+            {
+                MonitoredProcesses = ExtractStringList(json, "MonitoredProcesses");
+            }
             
             int actionVal = ExtractInt(json, "ActionOnClose", (int)ActionOnClose);
             if (actionVal >= 0 && actionVal <= 2)
@@ -263,6 +297,26 @@ namespace NoSleep
             {
                 ActionOnClose = CloseAction.ExitProgram;
             }
+        }
+
+        private static List<string> ExtractStringList(string json, string key)
+        {
+            List<string> list = new List<string>();
+            Match m = Regex.Match(json, string.Format("\"{0}\"\\s*:\\s*\\[([^\\]]*)\\]", key), RegexOptions.Singleline);
+            if (m.Success)
+            {
+                string arrayContent = m.Groups[1].Value;
+                MatchCollection itemMatches = Regex.Matches(arrayContent, "\"([^\"]*)\"");
+                foreach (Match itemMatch in itemMatches)
+                {
+                    string item = itemMatch.Groups[1].Value.Trim();
+                    if (!string.IsNullOrEmpty(item))
+                    {
+                        list.Add(item);
+                    }
+                }
+            }
+            return list;
         }
 
         private static double ExtractDouble(string json, string key, double defaultValue)

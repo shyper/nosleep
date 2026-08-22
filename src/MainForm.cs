@@ -15,6 +15,7 @@ namespace NoSleep
         Idle,
         PendingVerification,
         Active,
+        ProcessActive,
         Cooldown,
         Forced
     }
@@ -64,6 +65,8 @@ namespace NoSleep
         private CheckBox _chkAutostart;
         private CheckBox _chkStartMinimized;
         private ComboBox _cmbCloseAction;
+        private CheckBox _chkMonitorProcesses;
+        private Button _btnManageProcesses;
 
         // Log / Event list
         private ListBox _logList;
@@ -101,8 +104,9 @@ namespace NoSleep
             _monitor.Start();
 
             AddLogEntry("NoSleep started. Real-time background monitoring active.");
-            AddLogEntry(string.Format("Config: Net ≥ {0:0.0} MB/s, Disk ≥ {1:0.0} MB/s, Trigger Delay = {2}s, Cooldown = {3}s.", 
-                _config.NetworkThresholdMBps, _config.DiskThresholdMBps, _config.ActivationDelaySeconds, _config.GracePeriodSeconds));
+            int procCount = (_config.MonitoredProcesses != null) ? _config.MonitoredProcesses.Count : 0;
+            AddLogEntry(string.Format("Config: Net ≥ {0:0.0} MB/s, Disk ≥ {1:0.0} MB/s, Delay = {2}s, Cooldown = {3}s, Watched Apps = {4}.", 
+                _config.NetworkThresholdMBps, _config.DiskThresholdMBps, _config.ActivationDelaySeconds, _config.GracePeriodSeconds, procCount));
         }
 
         private void InitializeFormProperties()
@@ -208,7 +212,7 @@ namespace NoSleep
                         border = Color.FromArgb(59, 130, 246);
                         bg = Color.FromArgb(23, 37, 84);
                     }
-                    else if (_lastData.IsConfirmedActive)
+                    else if (_lastData.IsProcessActive || _lastData.IsConfirmedActive)
                     {
                         border = Color.FromArgb(34, 197, 94);
                         bg = Color.FromArgb(20, 83, 45);
@@ -504,7 +508,7 @@ namespace NoSleep
             // Row 6: Close Action Dropdown
             Label lblCloseAction = new Label();
             lblCloseAction.Text = "Action on Close (X):";
-            lblCloseAction.Location = new Point(20, 185);
+            lblCloseAction.Location = new Point(20, 175);
             lblCloseAction.Size = new Size(180, 20);
             lblCloseAction.ForeColor = Color.FromArgb(205, 214, 244);
             lblCloseAction.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
@@ -512,8 +516,8 @@ namespace NoSleep
 
             _cmbCloseAction = new ComboBox();
             _cmbCloseAction.DropDownStyle = ComboBoxStyle.DropDownList;
-            _cmbCloseAction.Location = new Point(200, 181);
-            _cmbCloseAction.Size = new Size(280, 26);
+            _cmbCloseAction.Location = new Point(200, 172);
+            _cmbCloseAction.Size = new Size(450, 24);
             _cmbCloseAction.BackColor = Color.FromArgb(49, 50, 68);
             _cmbCloseAction.ForeColor = Color.White;
             _cmbCloseAction.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
@@ -530,6 +534,31 @@ namespace NoSleep
                 }
             };
             _settingsGroup.Controls.Add(_cmbCloseAction);
+
+            // Row 7: Monitored Applications
+            _chkMonitorProcesses = new CheckBox();
+            _chkMonitorProcesses.Text = "Prevent standby for monitored apps";
+            _chkMonitorProcesses.Location = new Point(20, 212);
+            _chkMonitorProcesses.Size = new Size(290, 26);
+            _chkMonitorProcesses.Checked = _config.MonitorProcesses;
+            _chkMonitorProcesses.ForeColor = Color.FromArgb(205, 214, 244);
+            _chkMonitorProcesses.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+            _chkMonitorProcesses.CheckedChanged += delegate { AutoSaveSettings(); };
+            _settingsGroup.Controls.Add(_chkMonitorProcesses);
+
+            _btnManageProcesses = new Button();
+            _btnManageProcesses.Location = new Point(320, 210);
+            _btnManageProcesses.Size = new Size(330, 28);
+            _btnManageProcesses.BackColor = Color.FromArgb(49, 50, 68);
+            _btnManageProcesses.ForeColor = Color.FromArgb(137, 180, 250);
+            _btnManageProcesses.FlatStyle = FlatStyle.Flat;
+            _btnManageProcesses.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            _btnManageProcesses.FlatAppearance.BorderSize = 0;
+            _btnManageProcesses.Cursor = Cursors.Hand;
+            _btnManageProcesses.Click += delegate { OpenProcessManager(); };
+            _settingsGroup.Controls.Add(_btnManageProcesses);
+
+            UpdateManageProcessesButtonText();
 
             this.Controls.Add(_settingsGroup);
 
@@ -608,12 +637,12 @@ namespace NoSleep
             // 7. Action Buttons
             _btnSaveSettings = new Button();
             _btnSaveSettings.Text = "💾 Save Settings";
-            _btnSaveSettings.Location = new Point(300, 695);
-            _btnSaveSettings.Size = new Size(195, 36);
+            _btnSaveSettings.Location = new Point(300, 694);
+            _btnSaveSettings.Size = new Size(195, 38);
             _btnSaveSettings.BackColor = Color.FromArgb(137, 180, 250);
             _btnSaveSettings.ForeColor = Color.FromArgb(17, 17, 27);
             _btnSaveSettings.FlatStyle = FlatStyle.Flat;
-            _btnSaveSettings.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            _btnSaveSettings.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             _btnSaveSettings.Cursor = Cursors.Hand;
             _btnSaveSettings.FlatAppearance.BorderSize = 0;
             _btnSaveSettings.Click += delegate { SaveSettingsExplicitly(); };
@@ -621,12 +650,12 @@ namespace NoSleep
 
             _btnMinimize = new Button();
             _btnMinimize.Text = "🗕 Minimize to System Tray";
-            _btnMinimize.Location = new Point(510, 695);
-            _btnMinimize.Size = new Size(195, 36);
+            _btnMinimize.Location = new Point(510, 694);
+            _btnMinimize.Size = new Size(195, 38);
             _btnMinimize.BackColor = Color.FromArgb(49, 50, 68);
             _btnMinimize.ForeColor = Color.White;
             _btnMinimize.FlatStyle = FlatStyle.Flat;
-            _btnMinimize.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            _btnMinimize.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             _btnMinimize.Cursor = Cursors.Hand;
             _btnMinimize.FlatAppearance.BorderSize = 0;
             _btnMinimize.Click += delegate
@@ -816,6 +845,10 @@ namespace NoSleep
             _config.KeepDisplayOn = _chkKeepDisplay.Checked;
             _config.StartWithWindows = _chkAutostart.Checked;
             _config.StartMinimized = _chkStartMinimized.Checked;
+            if (_chkMonitorProcesses != null)
+            {
+                _config.MonitorProcesses = _chkMonitorProcesses.Checked;
+            }
             if (_cmbCloseAction != null && _cmbCloseAction.SelectedIndex >= 0)
             {
                 _config.ActionOnClose = (CloseAction)_cmbCloseAction.SelectedIndex;
@@ -832,9 +865,34 @@ namespace NoSleep
         {
             SyncConfigFromUI();
             _config.Save();
+            UpdateManageProcessesButtonText();
             AddLogEntry(string.Format("Settings updated: Net ≥ {0:0.0} MB/s, Disk ≥ {1:0.0} MB/s, Trigger = {2}s, Cooldown = {3}s.", 
                 _config.NetworkThresholdMBps, _config.DiskThresholdMBps, _config.ActivationDelaySeconds, _config.GracePeriodSeconds));
             MessageBox.Show("Settings were successfully saved and applied!", "NoSleep", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void UpdateManageProcessesButtonText()
+        {
+            if (_btnManageProcesses == null) return;
+            int count = (_config.MonitoredProcesses != null) ? _config.MonitoredProcesses.Count : 0;
+            _btnManageProcesses.Text = string.Format("⚙️ Manage Monitored Apps ({0} configured)...", count);
+        }
+
+        private void OpenProcessManager()
+        {
+            using (ProcessManagerDialog dlg = new ProcessManagerDialog(_config))
+            {
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    if (_chkMonitorProcesses != null)
+                    {
+                        _chkMonitorProcesses.Checked = _config.MonitorProcesses;
+                    }
+                    UpdateManageProcessesButtonText();
+                    int count = (_config.MonitoredProcesses != null) ? _config.MonitoredProcesses.Count : 0;
+                    AddLogEntry(string.Format("Monitored apps updated: {0} active in watchlist.", count));
+                }
+            }
         }
 
         private void OnActivityUpdated(ActivityData data)
@@ -888,6 +946,15 @@ namespace NoSleep
                     _statusTitleLabel.ForeColor = Color.FromArgb(147, 197, 253);
                     _statusDetailLabel.Text = "'Keep PC Awake' mode is active. Standby is blocked indefinitely.";
                 }
+                else if (data.IsProcessActive)
+                {
+                    string procs = (data.ActiveMonitoredProcesses != null && data.ActiveMonitoredProcesses.Count > 0)
+                        ? string.Join(", ", data.ActiveMonitoredProcesses.ToArray())
+                        : "Application";
+                    _statusTitleLabel.Text = "⚡ STANDBY BLOCKED (APP RUNNING)";
+                    _statusTitleLabel.ForeColor = Color.FromArgb(74, 222, 128);
+                    _statusDetailLabel.Text = string.Format("Monitored application is active: {0}. Standby is blocked.", procs);
+                }
                 else if (data.IsConfirmedActive)
                 {
                     _statusTitleLabel.Text = "⚡ STANDBY BLOCKED (ACTIVITY CONFIRMED)";
@@ -919,6 +986,10 @@ namespace NoSleep
                 {
                     currentState = SystemActivityState.Forced;
                 }
+                else if (data.IsProcessActive)
+                {
+                    currentState = SystemActivityState.ProcessActive;
+                }
                 else if (data.IsConfirmedActive)
                 {
                     currentState = SystemActivityState.Active;
@@ -940,6 +1011,13 @@ namespace NoSleep
                 {
                     switch (currentState)
                     {
+                        case SystemActivityState.ProcessActive:
+                            string activeProcs = (data.ActiveMonitoredProcesses != null && data.ActiveMonitoredProcesses.Count > 0)
+                                ? string.Join(", ", data.ActiveMonitoredProcesses.ToArray())
+                                : "Application";
+                            AddLogEntry(string.Format("Monitored application detected running: {0} - Standby blocked.", activeProcs));
+                            break;
+
                         case SystemActivityState.PendingVerification:
                             AddLogEntry(string.Format("Activity peak detected (Net: {0:0.0} MB/s, Disk: {1:0.0} MB/s) - Verifying for {2}s before blocking standby...", 
                                 data.NetworkDownMBps, data.DiskTotalMBps, data.ActivationDelayRequiredSeconds));
@@ -992,6 +1070,12 @@ namespace NoSleep
             {
                 case SystemActivityState.Forced:
                     trayStatus = "Sleep forcibly blocked";
+                    break;
+                case SystemActivityState.ProcessActive:
+                    string procs = (data.ActiveMonitoredProcesses != null && data.ActiveMonitoredProcesses.Count > 0)
+                        ? string.Join(", ", data.ActiveMonitoredProcesses.ToArray())
+                        : "Application";
+                    trayStatus = string.Format("Standby blocked (App: {0})", procs);
                     break;
                 case SystemActivityState.Active:
                     trayStatus = "Standby blocked (activity confirmed)";
