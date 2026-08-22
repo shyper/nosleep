@@ -72,7 +72,7 @@ namespace NoSleep
             _contentCard.Controls.Add(_titleLabel);
 
             _descLabel = new Label();
-            _descLabel.Text = "You can minimize NoSleep to your Taskbar to keep monitoring downloads in the background, or exit the program completely.";
+            _descLabel.Text = "You can minimize NoSleep to your System Tray to keep monitoring downloads in the background, or exit the program completely.";
             _descLabel.Font = new Font("Segoe UI", 8.5f, FontStyle.Regular);
             _descLabel.ForeColor = Color.FromArgb(186, 194, 222);
             _descLabel.Location = new Point(15, 38);
@@ -91,9 +91,9 @@ namespace NoSleep
             _chkRemember.Font = new Font("Segoe UI", 8.5f);
             this.Controls.Add(_chkRemember);
 
-            // Button 1: Minimize to Taskbar
+            // Button 1: Minimize to System Tray
             _btnTaskbar = new Button();
-            _btnTaskbar.Text = "🗕 Minimize to Taskbar";
+            _btnTaskbar.Text = "🗕 Minimize to Tray";
             _btnTaskbar.Location = new Point(16, 165);
             _btnTaskbar.Size = new Size(200, 36);
             _btnTaskbar.BackColor = Color.FromArgb(137, 180, 250);

@@ -30,9 +30,10 @@ Grab the latest standalone executable from the **[GitHub Releases](https://githu
 - **📋 Activity Log with Full Clipboard Support**:
   - Double-click any log row or press `Ctrl+C` to copy log entries directly to your clipboard.
   - Right-click context menu with *Copy Selected*, *Copy All Logs*, and *Clear Log*.
-- **🗕 Seamless Taskbar Minimization**:
-  - Minimizes cleanly to the Windows Taskbar while maintaining 100% background monitoring.
-  - Close button `[X]` provides customizable options (*Minimize to Taskbar*, *Exit Program*, or *Always Prompt*).
+- **🗕 System Tray Support**:
+  - Minimizes cleanly to the Windows System Tray (Notification Area) while maintaining 100% background monitoring.
+  - Tray icon with context menu: live status display, *Open NoSleep*, *Keep PC Awake* toggle, and *Exit*.
+  - Close button `[X]` provides customizable options (*Minimize to Tray*, *Exit Program*, or *Always Prompt*).
 - **📦 100% Standalone & Portable**:
   - Zero external runtime dependencies. Runs on any modern Windows 10 or Windows 11 PC.
 
@@ -52,8 +53,8 @@ Settings can be customized directly in the graphical interface or via `config.js
 | **Monitor Disk** | `Enabled` | Check disk write/read throughput for standby prevention. |
 | **Keep Display On** | `Disabled` | When disabled, displays can power down while the PC stays awake. |
 | **Start with Windows** | `Disabled` | Automatically launch NoSleep on Windows boot. |
-| **Start Minimized** | `Disabled` | Start minimized in taskbar on launch. |
-| **Action on Close** | `Prompt` | Action when clicking `[X]` (*Prompt*, *Minimize to Taskbar*, *Exit*). |
+| **Start Minimized** | `Disabled` | Start minimized in system tray on launch. |
+| **Action on Close** | `Prompt` | Action when clicking `[X]` (*Prompt*, *Minimize to Tray*, *Exit*). |
 
 ---
 

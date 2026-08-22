@@ -75,6 +75,14 @@ namespace NoSleep
         private Button _btnSaveSettings;
         private Button _btnClearLog;
 
+        // System Tray
+        private NotifyIcon _trayIcon;
+        private ContextMenuStrip _trayMenu;
+        private ToolStripMenuItem _trayStatusItem;
+        private ToolStripMenuItem _trayShowItem;
+        private ToolStripMenuItem _trayAwakeItem;
+        private ToolStripMenuItem _trayExitItem;
+
         private bool _isExplicitExit = false;
         private ActivityData _lastData = null;
         private SystemActivityState _lastState = SystemActivityState.Initial;
@@ -174,6 +182,10 @@ namespace NoSleep
             {
                 _config.ForceAwake = _forceAwakeCheck.Checked;
                 _config.Save();
+                if (_trayAwakeItem != null && _trayAwakeItem.Checked != _forceAwakeCheck.Checked)
+                {
+                    _trayAwakeItem.Checked = _forceAwakeCheck.Checked;
+                }
             };
             _headerPanel.Controls.Add(_forceAwakeCheck);
 
@@ -480,7 +492,7 @@ namespace NoSleep
             _settingsGroup.Controls.Add(_chkAutostart);
 
             _chkStartMinimized = new CheckBox();
-            _chkStartMinimized.Text = "Start minimized in Taskbar";
+            _chkStartMinimized.Text = "Start minimized in System Tray";
             _chkStartMinimized.Location = new Point(350, 140);
             _chkStartMinimized.Size = new Size(260, 24);
             _chkStartMinimized.Checked = _config.StartMinimized;
@@ -506,7 +518,7 @@ namespace NoSleep
             _cmbCloseAction.ForeColor = Color.White;
             _cmbCloseAction.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
             _cmbCloseAction.Items.Add("Always prompt (Dialog)");
-            _cmbCloseAction.Items.Add("Minimize to Taskbar (Keep running in background)");
+            _cmbCloseAction.Items.Add("Minimize to System Tray (Keep running in background)");
             _cmbCloseAction.Items.Add("Exit program completely");
             _cmbCloseAction.SelectedIndex = (int)_config.ActionOnClose;
             _cmbCloseAction.SelectedIndexChanged += delegate
@@ -608,7 +620,7 @@ namespace NoSleep
             this.Controls.Add(_btnSaveSettings);
 
             _btnMinimize = new Button();
-            _btnMinimize.Text = "🗕 Minimize to Taskbar";
+            _btnMinimize.Text = "🗕 Minimize to System Tray";
             _btnMinimize.Location = new Point(510, 695);
             _btnMinimize.Size = new Size(195, 36);
             _btnMinimize.BackColor = Color.FromArgb(49, 50, 68);
@@ -624,6 +636,51 @@ namespace NoSleep
                 this.WindowState = FormWindowState.Minimized;
             };
             this.Controls.Add(_btnMinimize);
+
+            // 8. System Tray Icon
+            _trayMenu = new ContextMenuStrip(this.components);
+
+            _trayStatusItem = new ToolStripMenuItem("Status: Monitoring...");
+            _trayStatusItem.Enabled = false;
+            _trayMenu.Items.Add(_trayStatusItem);
+
+            _trayMenu.Items.Add(new ToolStripSeparator());
+
+            _trayShowItem = new ToolStripMenuItem("Open NoSleep");
+            _trayShowItem.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            _trayShowItem.Click += delegate { RestoreFromTray(); };
+            _trayMenu.Items.Add(_trayShowItem);
+
+            _trayAwakeItem = new ToolStripMenuItem("Keep PC Awake");
+            _trayAwakeItem.CheckOnClick = true;
+            _trayAwakeItem.Checked = _config.ForceAwake;
+            _trayAwakeItem.Click += delegate
+            {
+                if (_forceAwakeCheck.Checked != _trayAwakeItem.Checked)
+                {
+                    _forceAwakeCheck.Checked = _trayAwakeItem.Checked;
+                }
+            };
+            _trayMenu.Items.Add(_trayAwakeItem);
+
+            _trayMenu.Items.Add(new ToolStripSeparator());
+
+            _trayExitItem = new ToolStripMenuItem("Exit");
+            _trayExitItem.Click += delegate { ExitApplication(); };
+            _trayMenu.Items.Add(_trayExitItem);
+
+            _trayIcon = new NotifyIcon(this.components);
+            _trayIcon.Icon = this.Icon;
+            _trayIcon.Text = "NoSleep";
+            _trayIcon.ContextMenuStrip = _trayMenu;
+            _trayIcon.Visible = false;
+            _trayIcon.MouseClick += delegate(object s, MouseEventArgs e)
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    RestoreFromTray();
+                }
+            };
         }
 
         private void CopySelectedLogsToClipboard()
@@ -665,13 +722,52 @@ namespace NoSleep
             FlushPendingLogs();
         }
 
-        protected override void OnShown(EventArgs e)
+        private bool _startupVisibilityHandled = false;
+
+        protected override void SetVisibleCore(bool value)
         {
-            base.OnShown(e);
-            if (_startMinimized)
+            if (!_startupVisibilityHandled)
             {
-                this.WindowState = FormWindowState.Minimized;
+                _startupVisibilityHandled = true;
+                if (value && _startMinimized && !_isExplicitExit)
+                {
+                    base.SetVisibleCore(false);
+                    HideToTray();
+                    AddLogEntry("NoSleep started minimized in system tray. Background monitoring active.");
+                    return;
+                }
             }
+            base.SetVisibleCore(value);
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (!_isExplicitExit && this.WindowState == FormWindowState.Minimized && _trayIcon != null)
+            {
+                HideToTray();
+            }
+        }
+
+        public void HideToTray()
+        {
+            if (_isExplicitExit || this.IsDisposed || _trayIcon == null) return;
+            this.Hide();
+            _trayIcon.Visible = true;
+        }
+
+        public void RestoreFromTray()
+        {
+            if (_trayIcon != null)
+            {
+                _trayIcon.Visible = false;
+            }
+            if (this.WindowState == FormWindowState.Minimized)
+            {
+                this.WindowState = FormWindowState.Normal;
+            }
+            this.Show();
+            this.Activate();
         }
 
         private void FlushPendingLogs()
@@ -865,8 +961,41 @@ namespace NoSleep
                     _lastState = currentState;
                 }
 
+                UpdateTrayStatus(data, currentState);
+
                 _statusCard.Invalidate();
             }));
+        }
+
+        private void UpdateTrayStatus(ActivityData data, SystemActivityState state)
+        {
+            if (_trayIcon == null || _trayStatusItem == null) return;
+
+            string trayStatus;
+            switch (state)
+            {
+                case SystemActivityState.Forced:
+                    trayStatus = "Sleep forcibly blocked";
+                    break;
+                case SystemActivityState.Active:
+                    trayStatus = "Standby blocked (activity confirmed)";
+                    break;
+                case SystemActivityState.PendingVerification:
+                    trayStatus = string.Format("Verifying activity ({0}/{1}s)", data.PendingActivationSeconds, data.ActivationDelayRequiredSeconds);
+                    break;
+                case SystemActivityState.Cooldown:
+                    trayStatus = string.Format("Cooldown active ({0}s)", data.GracePeriodRemainingSeconds);
+                    break;
+                default:
+                    trayStatus = "Idle - sleep allowed";
+                    break;
+            }
+
+            _trayStatusItem.Text = "Status: " + trayStatus;
+
+            string tooltip = "NoSleep - " + trayStatus + " (Net: " + data.NetworkDownMBps.ToString("0.0") + ", Disk: " + data.DiskTotalMBps.ToString("0.0") + " MB/s)";
+            if (tooltip.Length > 63) tooltip = tooltip.Substring(0, 63);
+            _trayIcon.Text = tooltip;
         }
 
         public void AddLogEntry(string message)
