@@ -109,7 +109,7 @@ namespace NoSleep
         {
             this.Text = "NoSleep - Standby Prevention Utility";
             this.Size = new Size(740, 800);
-            this.MinimumSize = new Size(700, 760);
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.FromArgb(24, 24, 37);
             this.ForeColor = Color.FromArgb(205, 214, 244);
@@ -773,6 +773,12 @@ namespace NoSleep
                 }
 
                 this.Activate();
+
+                // Windows may deny foreground activation from a background
+                // process; briefly forcing TopMost guarantees the window
+                // ends up on top (e.g. when launched a second time).
+                this.TopMost = true;
+                this.TopMost = false;
             }
             finally
             {

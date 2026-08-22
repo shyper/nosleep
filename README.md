@@ -31,9 +31,13 @@ Grab the latest standalone executable from the **[GitHub Releases](https://githu
   - Double-click any log row or press `Ctrl+C` to copy log entries directly to your clipboard.
   - Right-click context menu with *Copy Selected*, *Copy All Logs*, and *Clear Log*.
 - **🗕 System Tray Support**:
+  - Always-visible tray icon with live status display while the app runs.
   - Minimizes cleanly to the Windows System Tray (Notification Area) while maintaining 100% background monitoring.
-  - Tray icon with context menu: live status display, *Open NoSleep*, *Keep PC Awake* toggle, and *Exit*.
+  - Tray context menu: *Open NoSleep*, *Keep PC Awake* toggle, and *Exit*.
   - Close button `[X]` provides customizable options (*Minimize to Tray*, *Exit Program*, or *Always Prompt*).
+- **🪟 Single Instance**:
+  - Launching NoSleep again never spawns a duplicate; the running instance is restored from the tray and brought to the foreground instead.
+- **📐 Fixed Window Size**: The main window uses a compact fixed-size layout and cannot be resized.
 - **📦 100% Standalone & Portable**:
   - Zero external runtime dependencies. Runs on any modern Windows 10 or Windows 11 PC.
 
