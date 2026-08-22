@@ -1,0 +1,26 @@
+name: CI Build Check
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    name: Build & Validate Executable
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build NoSleep.exe
+        shell: powershell
+        run: |
+          .\build.ps1
+          if (-not (Test-Path "NoSleep.exe")) {
+              Write-Error "Build verification failed: NoSleep.exe not found!"
+              exit 1
+          }
+          Write-Host "CI Build passed successfully." -ForegroundColor Green

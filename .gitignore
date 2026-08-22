@@ -1,0 +1,36 @@
+# Build outputs & Binaries
+NoSleep.exe
+*.exe
+*.dll
+*.pdb
+*.obj
+*.bin
+
+# User Configuration & Local Settings
+config.json
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio & IDE Directories
+.vs/
+.idea/
+.vscode/
+bin/
+obj/
+artifacts/
+
+# Logs & Diagnostics
+*.log
+*.tmp
+inspect_*.ps1
+test_*.ps1
+test_*.cs
+clean_*.ps1
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store

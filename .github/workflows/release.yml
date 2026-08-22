@@ -1,0 +1,91 @@
+name: Build & Release NoSleep
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Publish Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Compile NoSleep.exe
+        shell: powershell
+        run: |
+          Write-Host "Running build.ps1..." -ForegroundColor Cyan
+          .\build.ps1
+          if (-not (Test-Path "NoSleep.exe")) {
+              Write-Error "NoSleep.exe was not produced by build.ps1!"
+              exit 1
+          }
+          $exe = Get-Item "NoSleep.exe"
+          Write-Host "NoSleep.exe built successfully ($($exe.Length) bytes)." -ForegroundColor Green
+
+      - name: Package Release Assets
+        shell: powershell
+        run: |
+          $version = if ($env:GITHUB_REF -like "refs/tags/v*") {
+              $env:GITHUB_REF -replace "refs/tags/", ""
+          } elseif ($env:INPUT_TAG_NAME) {
+              $env:INPUT_TAG_NAME
+          } else {
+              "v1.0.0"
+          }
+
+          $zipName = "NoSleep-$version-Portable.zip"
+          Write-Host "Packaging $zipName..." -ForegroundColor Cyan
+          
+          # Create staging folder for clean archive
+          $stageDir = "stage_release"
+          if (Test-Path $stageDir) { Remove-Item $stageDir -Recurse -Force }
+          New-Item -ItemType Directory -Path $stageDir | Out-Null
+
+          Copy-Item "NoSleep.exe" -Destination $stageDir
+          Copy-Item "LICENSE" -Destination $stageDir
+          Copy-Item "README.md" -Destination $stageDir
+
+          Compress-Archive -Path "$stageDir\*" -DestinationPath $zipName -Force
+
+          # Generate SHA256 Checksums
+          $exeHash = (Get-FileHash -Path "NoSleep.exe" -Algorithm SHA256).Hash
+          $zipHash = (Get-FileHash -Path $zipName -Algorithm SHA256).Hash
+
+          $checksums = @"
+          $exeHash  NoSleep.exe
+          $zipHash  $zipName
+          "@.Trim()
+
+          Set-Content -Path "SHA256SUMS.txt" -Value $checksums -Encoding UTF8
+          Write-Host "SHA256 Checksums generated:" -ForegroundColor Yellow
+          Get-Content "SHA256SUMS.txt"
+
+          # Output version for next steps
+          echo "RELEASE_TAG=$version" >> $env:GITHUB_ENV
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "NoSleep ${{ env.RELEASE_TAG }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            NoSleep.exe
+            ${{ env.ZIP_NAME }}
+            SHA256SUMS.txt
